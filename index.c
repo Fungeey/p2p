@@ -19,7 +19,7 @@
 // Max Content
 
 typedef struct entry {
-  char usr[NAMESIZ];
+  char username[NAMESIZ];
   char ip[16];
   char port[7];
   short token;
@@ -54,7 +54,7 @@ int main(int argc, char * argv[]) {
   struct sockaddr_in sin, * p_addr; // the from address of a client	
   ENTRY * p_entry;
   char * service = "10000"; // service name or port number	
-  char name[NAMESIZ], usr[NAMESIZ];
+  char name[NAMESIZ], username[NAMESIZ];
   int alen = sizeof(struct sockaddr_in); // from-address length		
   int s, n, i, len, p_sock; // socket descriptor and socket type    
   int pdulen = sizeof(PDU);
@@ -151,13 +151,13 @@ void search(int s, char * data, struct sockaddr_in * addr) {
   ENTRY * head;//pointer to store the entry with least used token
   int pdulen = sizeof(PDU);//size PDU structure
   PDU spdu;//structure to hold response pdu
-  char usr[20];//variable to store extracted username
+  char username[20];//variable to store extracted username
   char ouput[100];//buffer formatted output data
   char fileName[20];//variable to store file name
   char rep[2] = ",";
 
   //split recieved data into username and filename
-  strcpy(usr, strtok(data, rep));
+  strcpy(username, strtok(data, rep));
   strcpy(fileName, strtok(NULL, rep));
 
   // loop through list until you find name == data.
@@ -183,7 +183,7 @@ void search(int s, char * data, struct sockaddr_in * addr) {
   if (found == 1) {
     spdu.type = 'S'; //set to search response
     //Format out data with username, filename, ip address and port
-    strcpy(ouput, use -> usr);
+    strcpy(ouput, use -> username);
     strcat(ouput, ",");
     strcat(ouput, fileName);
     strcat(ouput, ",");
@@ -213,12 +213,12 @@ void deregistration(int s, char * data, struct sockaddr_in * addr) {
   int listIndex = 0;//variable to keep track of current index
   PDU spdu;//structure to hold the reponse PDU
   char rep[2] = ",";//delimiters used for splitting data
-  char usr[20];//variables to store username from data
+  char username[20];//variables to store username from data
   char file[20];//variable to store the filename from data
   printf("Deregistering %s\n", data);//print data being processed
 
   //Split the data into username and filename
-  strcpy(usr, strtok(data, rep));
+  strcpy(username, strtok(data, rep));
   strcpy(file, strtok(NULL, rep));
   //Loop through the list of registered contents
   for (j = 0; j < max_index; j++) {
@@ -230,11 +230,11 @@ void deregistration(int s, char * data, struct sockaddr_in * addr) {
 
       //Traverse the linked list to find user
       while (head != NULL) {
-        printf("Usr list = %s\n", head -> usr);//print usernmae in the list
-        printf("Usr given = %s\n", usr);//print given username
+        printf("Usr list = %s\n", head -> username);//print usernmae in the list
+        printf("Usr given = %s\n", username);//print given username
 
         //Check if the current entry matches the given username
-        if (strcmp(head -> usr, usr) == 0) {
+        if (strcmp(head -> username, username) == 0) {
           printf("Compare name success\n");
           printf("List index = %d\n", listIndex);
           use = listIndex;//store the index of ofund entry
@@ -290,7 +290,7 @@ void registration(int s, char * data, struct sockaddr_in * addr) {
   printf("Socket %d\n", s);
   printf("Data %s\n", data);
   // get user, file name, and port from the recieved 
-  strcpy(new -> usr, strtok(data, rep));
+  strcpy(new -> username, strtok(data, rep));
   strcpy(fileName, strtok(NULL, rep));
   strcpy(new -> port, strtok(NULL, rep));
   strcpy(new -> ip, ip);
@@ -310,7 +310,7 @@ void registration(int s, char * data, struct sockaddr_in * addr) {
           break;
         }
         // check if username is already used
-        if (strcmp(head -> usr, data) == 0) {
+        if (strcmp(head -> username, data) == 0) {
           duplicateUser = 1;
           break;
         }
