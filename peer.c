@@ -383,7 +383,60 @@ int main(int argc, char **argv) {
 
           // Deregister Content 'T'
           if (command[0] == 'T') {
-            deregistration(s_sock, )
+            // set PDU type to 'T' indicating deregistration request
+            rpdu.type = 'T';
+
+            char contentName[20];
+            local_list();  // list the local content and user
+                           // chooses a number from the list
+            printf("Enter Number In List:\n");
+            int theValueInList;
+            while (scanf("%d", &theValueInList) !=
+                   1) {  // Read user input to deregister
+              printf("Please enter a number\n");
+            }
+            printf("Index chosen = %d\n", theValueInList);
+            if (theValueInList >= indexs) {  // check if index is valid
+              continue;
+            }
+
+            // send the name of the file to remove
+            strcpy(contentName, table[theValueInList].name);
+
+            // Remove any trailing newline characters from peer name
+            peerName[strcspn(peerName, "\n")] = 0;
+
+            strcpy(dataToSend, peerName);
+            strcat(dataToSend, ",");
+
+            // Remove any trailing newline characters from peer name
+            contentName[strcspn(contentName, "\n")] = 0;
+
+            strcat(dataToSend, contentName);
+            strcpy(rpdu.data, dataToSend);  // copy the prepared data into the
+                                            // PDU's data field
+            write(s_sock, &rpdu, sizeof(rpdu));  // send PDU to server
+            PDU response;
+
+            while (1) {
+              // read response from server
+              n = read(s_sock, &response, sizeof(response));
+
+              printf("%d\n", n);
+              if (response.type == 'E') {  // if the reponse type is 'E', print
+                                           // error message and break loop
+                printf("%s\n", response.data);
+                break;
+              }
+
+              // Acknowledge 'A' on completion
+              if (response.type == 'A') {
+                printf("%s\n", response.data);
+                table[theValueInList].val =
+                    0;  // Unregister content in local table
+                break;
+              }
+            }
           }
 
           // Quit 'Q'
@@ -554,59 +607,6 @@ int client_download(char *name, PDU *pdu) {
 void deregistration(int s_sock, char *name) {
   /* Contact the index server to deregister a content registration;
    * Update nfds. */
-
-  // set PDU type to 'T' indicating deregistration request
-  rpdu.type = 'T';
-
-  char contentName[20];
-  local_list();  // list the local content and user
-                 // chooses a number from the list
-  printf("Enter Number In List:\n");
-  int theValueInList;
-  while (scanf("%d", &theValueInList) != 1) {  // Read user input to deregister
-    printf("Please enter a number\n");
-  }
-  printf("Index chosen = %d\n", theValueInList);
-  if (theValueInList >= indexs) {  // check if index is valid
-    continue;
-  }
-
-  // send the name of the file to remove
-  strcpy(contentName, table[theValueInList].name);
-
-  // Remove any trailing newline characters from peer name
-  peerName[strcspn(peerName, "\n")] = 0;
-
-  strcpy(dataToSend, peerName);
-  strcat(dataToSend, ",");
-
-  // Remove any trailing newline characters from peer name
-  contentName[strcspn(contentName, "\n")] = 0;
-
-  strcat(dataToSend, contentName);
-  strcpy(rpdu.data, dataToSend);  // copy the prepared data into the
-                                  // PDU's data field
-  write(s_sock, &rpdu, sizeof(rpdu));  // send PDU to server
-  PDU response;
-
-  while (1) {
-    // read response from server
-    n = read(s_sock, &response, sizeof(response));
-
-    printf("%d\n", n);
-    if (response.type == 'E') {  // if the reponse type is 'E', print
-                                 // error message and break loop
-      printf("%s\n", response.data);
-      break;
-    }
-    
-    // Acknowledge 'A' on completion
-    if (response.type == 'A') { 
-      printf("%s\n", response.data);
-      table[theValueInList].val = 0;  // Unregister content in local table
-      break;
-    }
-  }
 }
 
 void registration(int s_sock, char *name) {
