@@ -21,7 +21,7 @@
 #define SERVER_PORT 10000
 #define CONNECTION_REQUEST_LIMIT 5
 #define BUFLEN 100
-#define NAMESIZ 20
+#define NAMESIZE 20
 #define MAXCON 200
 
 typedef struct {
@@ -39,20 +39,17 @@ PDU rpdu;
 
 struct {
   int val;
-  char name[NAMESIZ];
+  char name[NAMESIZE];
 } table[MAXCON];  // Registered File Tracking
 
-char usr[NAMESIZ];
+char usr[NAMESIZE];
 
 int s_sock, peer_port;
 int fd, nfds;
 fd_set rfds, afds;
 
-void registration(int, char *);
-int search_content(int, char *, PDU *);
 int client_download(char *, PDU *);
 int server_download(int);
-void deregistration(int, char *);
 void local_list();
 void quit(int);
 void handler();
@@ -62,13 +59,13 @@ char peerName[10];
 int pid;
 
 int main(int argc, char **argv) {
-  int s_port = SERVER_PORT;
+  int server_port = SERVER_PORT;
   int n;
   int alen = sizeof(struct sockaddr_in);
 
   struct hostent *hp;
   struct sockaddr_in server;
-  char c, *host, name[NAMESIZ];
+  char c, *host, name[NAMESIZE];
   struct sigaction sa;
   char dataToSend[100];
   switch (argc) {
@@ -77,12 +74,13 @@ int main(int argc, char **argv) {
       break;
     case 3:
       host = argv[1];
-      s_port = atoi(argv[2]);
+      server_port = atoi(argv[2]);
       break;
     default:
       printf("Usage: %s host [port]\n", argv[0]);
       exit(1);
   }
+
   // TCP
   int sd, new_sd, client_len, port, m;
   struct sockaddr_in client, client2;
@@ -108,7 +106,7 @@ int main(int argc, char **argv) {
   // UDP
   memset(&server, 0, alen);
   server.sin_family = AF_INET;
-  server.sin_port = htons(s_port);
+  server.sin_port = htons(server_port);
 
   if (hp = gethostbyname(host))
     memcpy(&server.sin_addr, hp->h_addr, hp->h_length);
@@ -116,13 +114,15 @@ int main(int argc, char **argv) {
     printf("Can't get host entry \n");
     exit(1);
   }
-  s_sock = socket(AF_INET, SOCK_DGRAM,
-                  0);  // Allocate a socket for the index server
+
+  // Allocate a socket for the index server
+  s_sock = socket(AF_INET, SOCK_DGRAM, 0);
 
   if (s_sock < 0) {
     printf("Can't create socket \n");
     exit(1);
   }
+
   if (connect(s_sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
     printf("Can't connect \n");
     exit(1);
@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
                 "L-List "
                 "Local Content\n");
             printf(
-                "D-Download Content; O-List all the On-line "
+                "D-Download Content; O-List all the Online "
                 "Content; "
                 "Q-Quit\n\n");
             continue;
@@ -209,21 +209,23 @@ int main(int argc, char **argv) {
 
           // REGISTER CONTENT 'R'
           if (command[0] == 'R') {
-            rpdu.type = 'R';  // set the PDU type to 'R' indicating
-                              // a registration request
+            rpdu.type = 'R';
+
             printf("Content Name:\n");
             char contentName[20];
-            n = read(0, contentName,
-                     20);  // Read the content name from user input
-            peerName[strcspn(peerName, "\n")] =
-                0;  // Remove any trailing newline characters from
-                    // peer name
+
+            // Read the content name from user input
+            n = read(0, contentName, 20);
+
+            // Remove any trailing newline characters from peer name
+            peerName[strcspn(peerName, "\n")] = 0;
             contentName[strcspn(contentName, "\n")] = 0;
+
             if (fopen(contentName, "r") == NULL) {
-              printf("File Does Not Exist!");  // Check if file
-                                               // exists
+              printf("File Does Not Exist!");
               continue;
             }
+
             // Preapare date to be sent: Username, Request Content,
             // IP and Port
             strcpy(dataToSend, peerName);
@@ -268,6 +270,7 @@ int main(int argc, char **argv) {
               }
             }
           }
+
           // List Content 'L'
           if (command[0] == 'L') {
             local_list();
@@ -331,6 +334,7 @@ int main(int argc, char **argv) {
                 printf("%s\n", response.data);
                 break;
               }
+
               // initiate client download process
               if (response.type == 'S') {
                 // If the server has the content branch to the
@@ -350,6 +354,7 @@ int main(int argc, char **argv) {
 
                 // mark content as registered in local table
                 table[indexs].val = 1;
+                
                 // store content name in local table
                 strcpy(table[indexs].name, contentName);
                 indexs++;
@@ -359,10 +364,7 @@ int main(int argc, char **argv) {
 
                 PDU response;
                 while (1) {
-                  n = read(s_sock, &response,
-                           sizeof(response));  // Read response PDU
-                                               // from server
-                  // printf("%d\n",n);
+                  n = read(s_sock, &response, sizeof(response));
                   if (response.type == 'E') {
                     // print error message and break loop
                     printf("%s\n", response.data);
@@ -370,12 +372,12 @@ int main(int argc, char **argv) {
                   }
 
                   if (response.type == 'A') {
-                    // print acknowledge message and break
-                    // loop
+                    // print acknowledge message and break loop
                     printf("%s\n", response.data);
                     break;
                   }
                 }
+
                 break;
               }
             }
@@ -391,12 +393,16 @@ int main(int argc, char **argv) {
                            // chooses a number from the list
             printf("Enter Number In List:\n");
             int theValueInList;
-            while (scanf("%d", &theValueInList) !=
-                   1) {  // Read user input to deregister
+
+            // Read user input to deregister
+            while (scanf("%d", &theValueInList) != 1) {
               printf("Please enter a number\n");
             }
+
             printf("Index chosen = %d\n", theValueInList);
-            if (theValueInList >= indexs) {  // check if index is valid
+
+            // check if index is valid
+            if (theValueInList >= indexs) {
               continue;
             }
 
@@ -412,10 +418,13 @@ int main(int argc, char **argv) {
             // Remove any trailing newline characters from peer name
             contentName[strcspn(contentName, "\n")] = 0;
 
+            // copy the prepared data into the
+            // PDU's data field
             strcat(dataToSend, contentName);
-            strcpy(rpdu.data, dataToSend);  // copy the prepared data into the
-                                            // PDU's data field
-            write(s_sock, &rpdu, sizeof(rpdu));  // send PDU to server
+            strcpy(rpdu.data, dataToSend);
+
+            // send PDU to server
+            write(s_sock, &rpdu, sizeof(rpdu));
             PDU response;
 
             while (1) {
@@ -423,8 +432,7 @@ int main(int argc, char **argv) {
               n = read(s_sock, &response, sizeof(response));
 
               printf("%d\n", n);
-              if (response.type == 'E') {  // if the reponse type is 'E', print
-                                           // error message and break loop
+              if (response.type == 'E') { 
                 printf("%s\n", response.data);
                 break;
               }
@@ -432,8 +440,9 @@ int main(int argc, char **argv) {
               // Acknowledge 'A' on completion
               if (response.type == 'A') {
                 printf("%s\n", response.data);
-                table[theValueInList].val =
-                    0;  // Unregister content in local table
+
+                // Unregister content in local table
+                table[theValueInList].val = 0;  
                 break;
               }
             }
@@ -455,6 +464,7 @@ void quit(int s_sock) {
   int a = 0;
   char dataToSend[100];
   int n;
+
   for (a = 0; a < indexs; a++) {
     if (table[a].val == 1) {  // send all active registries and deregister them
       char contentName[20];
@@ -482,6 +492,7 @@ void quit(int s_sock) {
       }
     }
   }
+
   kill(pid, SIGKILL);  // End ALL
 }
 
@@ -490,8 +501,8 @@ void local_list() {
   /* List local content	*/
   for (i = 0; i < indexs; i++) {
     if (table[i].val == 1) {
-      printf("[%d]: %s\n", i,
-             table[i].name);  // display value in list and name of file
+      // display value in list and name of file
+      printf("[%d]: %s\n", i, table[i].name);
     }
   }
 }
@@ -512,8 +523,7 @@ int server_download(int sd) {
     strcpy(spdu.data, "Error file not found\n");
     write(sd, &spdu, sizeof(spdu));
   } else {
-    while ((m = fread(spdu.data, sizeof(char), 100, pFile)) >
-           0) {         // send each file in a pdu
+    while ((m = fread(spdu.data, sizeof(char), 100, pFile)) > 0) {
       spdu.type = 'C';  // data pdu for file creation
       spdu.size = m;
       write(sd, &spdu, sizeof(spdu));
@@ -523,12 +533,6 @@ int server_download(int sd) {
 
   close(sd);
   return (0);
-}
-
-int search_content(int s_sock, char *name, PDU *rpdu) {
-  /* Contact index server to search for the content
-     If the content is available, the index server will return
-     the IP address and port number of the content server.	*/
 }
 
 int client_download(char *name, PDU *pdu) {
@@ -564,7 +568,8 @@ int client_download(char *name, PDU *pdu) {
     fprintf(stderr, "Acquiring Server Address Failed\n");
     exit(1);
   }
-  // Connecting to server
+
+  // Connect to server
   if (connect(sd, (struct sockaddr *)&server, sizeof(server)) == -1) {
     fprintf(stderr, "Can't connect to a server \n");
     exit(1);
@@ -597,23 +602,12 @@ int client_download(char *name, PDU *pdu) {
       break;
     }
   }
+
   // close the file connection
   fclose(fp);
   // close the socket connection
   close(sd);
   return 0;
-}
-
-void deregistration(int s_sock, char *name) {
-  /* Contact the index server to deregister a content registration;
-   * Update nfds. */
-}
-
-void registration(int s_sock, char *name) {
-  /* Create a TCP socket for content download
-       one socket per content;
-     Register the content to the index server;
-     Update nfds;	*/
 }
 
 void handler() { quit(s_sock); }
