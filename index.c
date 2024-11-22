@@ -12,6 +12,15 @@
 #define NAMESIZ 20 // Maximum file or username size
 #define MAX_NUM_CON 200 // Maximum number of content entries
 
+// Data structure for a linked list node representing a user entry
+typedef struct entry {
+  char user_name[NAMESIZ];
+  char ip[16];
+  char port[7];
+  short token;
+  struct entry * next;
+} ENTRY;
+
 // Data structure representing a content list
 typedef struct {
   char name[NAMESIZ]; // Content Name
@@ -21,15 +30,6 @@ typedef struct {
 // Global variables
 LIST list[MAX_NUM_CON];
 int max_index = 0;
-
-// Data structure for a linked list node representing a user entry
-typedef struct entry {
-  char user_name[NAMESIZ];
-  char ip[16];
-  char port[7];
-  short token;
-  struct entry * next;
-} ENTRY;
 
 // Data structure for UDP protocol communication
 typedef struct {
