@@ -8,7 +8,6 @@
 #include <time.h>
 #include <arpa/inet.h>
 
-//---#define MSG1 "Cannot find content" // Error message for missing content
 #define BUFLEN 100 // Maximum UDP message size
 #define NAMESIZ 20 // Maximum file or username size
 #define MAX_NUM_CON 200 // Maximum number of content entries
@@ -82,7 +81,6 @@ int main(int argc, char * argv[]) {
   sin.sin_addr.s_addr = INADDR_ANY;
   sin.sin_port = htons((u_short) atoi(service));   // Map service name to port number 
 
-
   // Create UDP socket
   s = socket(AF_INET, SOCK_DGRAM, 0);
   if (s < 0) {
@@ -141,50 +139,53 @@ int main(int argc, char * argv[]) {
   return;
 }
 
-// s is socket address
-// *data is the data name
-// *addr is the address of the client sending/requesting
+// Function to search for content in the server's list
+// s is the socket address
+// *data is the data (username and filename) to search for
+// *addr is the address of the client sending the request
 void search(int s, char * data, struct sockaddr_in * addr) {
-  // Search content list and return the answer:
-  int j;//loop counter
-  int found = 0;//variable to indicate content is found
-  int used = 999;//variable keep track of least used token
-  ENTRY * use;//pointer to store least used token
-  ENTRY * head;//pointer to store the entry with least used token
-  int pdulen = sizeof(PDU);//size PDU structure
-  PDU spdu;//structure to hold response pdu
-  char user_name[20];//variable to store extracted username
-  char ouput[100];//buffer formatted output data
-  char fileName[20];//variable to store file name
-  char rep[2] = ",";
+  int j;                   // Loop counter
+  int found = 0;           // Flag to indicate if the content is found
+  int used = 999;          // Variable to track the least used token
+  ENTRY *use;              // Pointer to the least used entry
+  ENTRY *head;             // Pointer to traverse the linked list
+  int pdulen = sizeof(PDU); // Size of the PDU structure
+  PDU spdu;                // PDU structure to hold the response
+  char user_name[20];      // Variable to store the extracted username
+  char ouput[100];         // Buffer to format the output data
+  char fileName[20];       // Variable to store the extracted filename
+  char rep[2] = ",";       // Delimiter for splitting the received data
 
-  //split recieved data into username and filename
+  // Split the received data into username and filename
   strcpy(user_name, strtok(data, rep));
   strcpy(fileName, strtok(NULL, rep));
 
-  // loop through list until you find name == data.
+  // Iterate through the list to search for the requested content
   for (j = 0; j < max_index; j++) {
-    // check if the value at the list index 
-    // is equal to the requested file
-    printf("%s\n", list[j].name);//print current name content name in list
+    printf("%s\n", list[j].name);// Print the current content name in the list
+    
+    // Check if the file matches and it has entries in the linked list
     if (strcmp(list[j].name, fileName) == 0 && (list[j].head != NULL)) {
-      found = 1;//set found flag to true
-      head = list[j].head;//point to the head of linked list
-      // loop through the linked list until you find name
+      found = 1;             // Mark the content as found
+      head = list[j].head;   // Set the pointer to the head of the linked list
+
+      // Traverse the linked list to find the least used entry 
       while (head != NULL) {
         if (head -> token < used) {
-          used = head -> token;//update least used token
-          use = head;//store pointer to the entry with least used token
+          used = head -> token;   // Update least used token
+          use = head;             // Store the pointer to the least used entry
         }
-        head = head -> next;//move to next entry 
+        head = head -> next; // Move to the next entry in the linked list 
       }
-      break;//exit if content is found
+      break; // Exit the loop if the content is found
     }
   }
-  //if content is found prepare the response
+
+  // Prepare the response based on whether the content is found
   if (found == 1) {
-    spdu.type = 'S'; //set to search response
-    //Format out data with username, filename, ip address and port
+    spdu.type = 'S'; // Set response type to 'S' (success)
+
+    // Format the output data with username, filename, IP, and port
     strcpy(ouput, use -> user_name);
     strcat(ouput, ",");
     strcat(ouput, fileName);
@@ -192,79 +193,85 @@ void search(int s, char * data, struct sockaddr_in * addr) {
     strcat(ouput, use -> ip);
     strcat(ouput, ",");
     strcat(ouput, use -> port);
-    printf("%s\n", ouput);//print formatted data
-    strcpy(spdu.data, ouput);//copy outputted data into PDU's data feild 
-    use -> token++;//increament usage token entry
-//send to client
+    printf("%s\n", ouput); // print formatted data
+
+    strcpy(spdu.data, ouput); // Copy the output data to the PDU
+    use -> token++;  // Increment the usage token for the entry
+
+    // Send the response to the client
     (void) sendto(s, & spdu, sizeof(spdu), 0, (struct sockaddr * ) & fsin, sizeof(fsin));
   } else {
-    spdu.type = 'E';//set 'E' for error
-    strcpy(spdu.data, "File not found");//print message
-//send error response PDU to client
+    spdu.type = 'E';      // Set response type to 'E' (error)
+    strcpy(spdu.data, "File not found");//Set the Error message
+    // Send the error response to the client
     (void) sendto(s, & spdu, sizeof(spdu), 0, (struct sockaddr * ) & fsin, sizeof(fsin));
   }
   printf("Ending\n");
 }
 
-// Deregister content from the server
+// Function to deregister content from the server
+// s is the socket address
+// *data is the data (username and filename) to deregister
+// *addr is the address of the client requesting deregistration
 void deregistration(int s, char * data, struct sockaddr_in * addr) {
-  int j;//loop counter
-  int use = -1;//variable to store the index of found entry 
-  ENTRY * prev;// pointer to keep traack of previous entry in linked list
-  ENTRY * head;//pointer to traverse the linked list
-  int listIndex = 0;//variable to keep track of current index
-  PDU spdu;//structure to hold the reponse PDU
-  char rep[2] = ",";//delimiters used for splitting data
-  char user_name[20];//variables to store username from data
-  char file[20];//variable to store the filename from data
+  int j;                      // Loop counter
+  int use = -1;               // Index of the found entry
+  ENTRY *prev;                // Pointer to the previous entry in the linked list
+  ENTRY *head;                // Pointer to traverse the linked list
+  int listIndex = 0;          // Index of the current entry in the list
+  PDU spdu;                   // PDU structure to hold the response
+  char rep[2] = ",";          // Delimiter for splitting the data
+  char user_name[20];         // Variable to store the extracted username
+  char file[20];              // Variable to store the extracted filename
+  
   printf("Deregistering %s\n", data);//print data being processed
 
-  //Split the data into username and filename
+  // Split the received data into username and filename
   strcpy(user_name, strtok(data, rep));
   strcpy(file, strtok(NULL, rep));
-  //Loop through the list of registered contents
+
+  // Iterate through the list to find the file
   for (j = 0; j < max_index; j++) {
-  //check if the current list entry matches the filename
     if (strcmp(list[j].name, file) == 0) {
-      head = list[j].head; //point to the head of linked list
-      prev = list[j].head; //initialize previous to the head of linked list
-      listIndex = 0; //reset index
+      head = list[j].head;    //point to the head of linked list
+      prev = list[j].head;    //initialize previous to the head of linked list
+      listIndex = 0;          //reset index
 
-      //Traverse the linked list to find user
+      // Traverse the linked list to find the user
       while (head != NULL) {
-        printf("Usr list = %s\n", head -> user_name);//print usernmae in the list
-        printf("Usr given = %s\n", user_name);//print given username
+        printf("User list: %s\n", head -> user_name);//print usernmae in the list
+        printf("User given: %s\n", user_name);//print given username
 
-        //Check if the current entry matches the given username
+        // Check if the username matches
         if (strcmp(head -> user_name, user_name) == 0) {
-          printf("Compare name success\n");
-          printf("List index = %d\n", listIndex);
-          use = listIndex;//store the index of ofund entry
+          printf("Compare username success\n");
+          printf("List index: %d\n", listIndex);
+          use = listIndex; // Store the index of the found entry
 
-	  //if entry to be removed is first
+          // Update the linked list to remove the entry
           if (listIndex == 0) {
             list[j].head = head -> next; //update head to the next entry 
           } else {
             prev -> next = head -> next; //bypass the currnt entry in the list
           }
-          break;//exit loop if entry is found
+          break; // exit loop if entry is found
         }
-        listIndex++;//increment list index
-        prev = head;// update prev to current entry
-        head = head -> next;//move to next entry in the list
+        listIndex++;          //increment list index
+        prev = head;          // update prev to current entry
+        head = head -> next;  //move to next entry in the list
       }
       break;//exit if file is found
     }
   }
-  //check if entry was removed 
+
+  // Prepare the response based on whether the entry was removed
   if (use != -1) {
-    //send acknowledgement 'A'
-    spdu.type = 'A';
-    strcpy(spdu.data, "Done");
+    spdu.type = 'A';           // Set response type to 'A' (acknowledgment)
+    strcpy(spdu.data, "Done"); // Set the success message
     (void) sendto(s, & spdu, sizeof(spdu), 0, (struct sockaddr * ) & fsin, sizeof(fsin));
   } else {
-    spdu.type = 'E';
-    strcpy(spdu.data, "Failed");
+    spdu.type = 'E';             // Set response type to 'E' (error)
+    strcpy(spdu.data, "Failed"); // Set the error message
     (void) sendto(s, & spdu, sizeof(spdu), 0, (struct sockaddr * ) & fsin, sizeof(fsin));
   }
 }
