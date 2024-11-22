@@ -8,53 +8,50 @@
 #include <time.h>
 #include <arpa/inet.h>
 
-// 404 Error
-#define MSG1 "Cannot find content"
-// Max UDP Message Size
-#define BUFLEN 100
-// Max File Name Size
-#define NAMESIZ 20
-// Max Content
-#define MAX_NUM_CON 200
-// Max Content
+//---#define MSG1 "Cannot find content" // Error message for missing content
+#define BUFLEN 100 // Maximum UDP message size
+#define NAMESIZ 20 // Maximum file or username size
+#define MAX_NUM_CON 200 // Maximum number of content entries
 
+// Data structure representing a content list
+typedef struct {
+  char name[NAMESIZ]; // Content Name
+  ENTRY * head;
+} LIST;
+
+// Global variables
+LIST list[MAX_NUM_CON];
+int max_index = 0;
+
+// Data structure for a linked list node representing a user entry
 typedef struct entry {
-  char username[NAMESIZ];
+  char user_name[NAMESIZ];
   char ip[16];
   char port[7];
   short token;
   struct entry * next;
-}
-ENTRY;
+} ENTRY;
 
-typedef struct {
-  char name[NAMESIZ]; // Content Name
-  ENTRY * head;
-}
-LIST;
-LIST list[MAX_NUM_CON];
-int max_index = 0;
-
-// Pdu for udp communication
+// Data structure for UDP protocol communication
 typedef struct {
   char type;
   char data[BUFLEN];
-}
-PDU;
+} PDU;
 PDU tpdu;
 
 void search(int, char * , struct sockaddr_in * );
 void registration(int, char * , struct sockaddr_in * );
 void deregistration(int, char * , struct sockaddr_in * );
 
+// Socket address for communication
 struct sockaddr_in fsin;
 
-// UDP Content Indexing Service
+// Function prototypes & UDP Content Indexing Service
 int main(int argc, char * argv[]) {
   struct sockaddr_in sin, * p_addr; // the from address of a client	
   ENTRY * p_entry;
   char * service = "10000"; // service name or port number	
-  char name[NAMESIZ], username[NAMESIZ];
+  char name[NAMESIZ], user_name[NAMESIZ];
   int alen = sizeof(struct sockaddr_in); // from-address length		
   int s, n, i, len, p_sock; // socket descriptor and socket type    
   int pdulen = sizeof(PDU);
@@ -64,8 +61,11 @@ int main(int argc, char * argv[]) {
 
   PDU spdu;
 
+  // Initialize content lists
   for (n = 0; n < MAX_NUM_CON; n++)
     list[n].head = NULL;
+
+  // Parse command-line arguments for port number  
   switch (argc) {
   case 1:
     break;
@@ -73,48 +73,49 @@ int main(int argc, char * argv[]) {
     service = argv[1];
     break;
   default:
-    fprintf(stderr, "Incorrect Arguments \n Use the format: server [host] [port]\n");
+    fprintf(stderr, "Not Correct Arugments \n use: server [host] [port]\n");
   }
 
+  // Configure server address
   memset( & sin, 0, sizeof(sin));
   sin.sin_family = AF_INET;
   sin.sin_addr.s_addr = INADDR_ANY;
+  sin.sin_port = htons((u_short) atoi(service));   // Map service name to port number 
 
-  // Map service name to port number 
-  sin.sin_port = htons((u_short) atoi(service));
 
-  // Allocate socket 
+  // Create UDP socket
   s = socket(AF_INET, SOCK_DGRAM, 0);
   if (s < 0) {
-    fprintf(stderr, "can't creat socket\n");
+    fprintf(stderr, "Failed to create socket\n");
     exit(1);
   }
 
-  // Bind socket 
+  // Bind socket to the specified port 
   if (bind(s, (struct sockaddr * ) & sin, sizeof(sin)) < 0)
-    fprintf(stderr, "can't bind to %s port\n", service);
+    fprintf(stderr, "Failed to bind to port %s \n", service);
 
+  // Main server loop to handle client requests
   while (1) {
+    // Receive data from a client
     if ((n = recvfrom(s, & rpdu, pdulen, 0, (struct sockaddr * ) & fsin, & alen)) < 0) {
-      printf("recvfrom error: n=%d\n", n);
+      printf("Error recieving data n=%d\n", n);
     }
-    //Content Registration Request 'R'			
+    //Process requests based on the message type			
     if (rpdu.type == 'R') {
-      printf("Registering\n");
+      printf("Registering content\n");
       registration(s, rpdu.data, & fsin);//call registration function with socket, data, client address
       printf("%d\n", s);
     }
 
     // Search Content 'S'		
     if (rpdu.type == 'S') {
-      printf("Searching\n");
+      printf("Searching for content\n");
       search(s, rpdu.data, & fsin);//call search function with socket, data, client address
     }
 
-    //List Content 'O' 
+    //List All Content 'O' 
     if (rpdu.type == 'O') {
       printf("List content\n");
-      // Read from the content list and send the list to the client 		
       for (j = 0; j < max_index; j++) {
         if (list[j].head != NULL) {
           PDU spdu;
@@ -124,13 +125,14 @@ int main(int argc, char * argv[]) {
           (void) sendto(s, & spdu, sizeof(spdu), 0, (struct sockaddr * ) & fsin, sizeof(fsin));
         }
       }
-      // Acknowledge End of Response
+      
+      // Send acknowledgment for end of content listing
       PDU opdu;
       opdu.type = 'A';
       (void) sendto(s, & opdu, sizeof(opdu), 0, (struct sockaddr * ) & fsin, sizeof(fsin));
     }
 
-    //Deregister 'T'		
+     // Deregistration request		
     if (rpdu.type == 'T') {
       printf("de-register\n");
       deregistration(s, rpdu.data, & fsin);//call de-registration function with socket, data, client address
@@ -151,13 +153,13 @@ void search(int s, char * data, struct sockaddr_in * addr) {
   ENTRY * head;//pointer to store the entry with least used token
   int pdulen = sizeof(PDU);//size PDU structure
   PDU spdu;//structure to hold response pdu
-  char username[20];//variable to store extracted username
+  char user_name[20];//variable to store extracted username
   char ouput[100];//buffer formatted output data
   char fileName[20];//variable to store file name
   char rep[2] = ",";
 
   //split recieved data into username and filename
-  strcpy(username, strtok(data, rep));
+  strcpy(user_name, strtok(data, rep));
   strcpy(fileName, strtok(NULL, rep));
 
   // loop through list until you find name == data.
@@ -183,7 +185,7 @@ void search(int s, char * data, struct sockaddr_in * addr) {
   if (found == 1) {
     spdu.type = 'S'; //set to search response
     //Format out data with username, filename, ip address and port
-    strcpy(ouput, use -> username);
+    strcpy(ouput, use -> user_name);
     strcat(ouput, ",");
     strcat(ouput, fileName);
     strcat(ouput, ",");
@@ -213,12 +215,12 @@ void deregistration(int s, char * data, struct sockaddr_in * addr) {
   int listIndex = 0;//variable to keep track of current index
   PDU spdu;//structure to hold the reponse PDU
   char rep[2] = ",";//delimiters used for splitting data
-  char username[20];//variables to store username from data
+  char user_name[20];//variables to store username from data
   char file[20];//variable to store the filename from data
   printf("Deregistering %s\n", data);//print data being processed
 
   //Split the data into username and filename
-  strcpy(username, strtok(data, rep));
+  strcpy(user_name, strtok(data, rep));
   strcpy(file, strtok(NULL, rep));
   //Loop through the list of registered contents
   for (j = 0; j < max_index; j++) {
@@ -230,11 +232,11 @@ void deregistration(int s, char * data, struct sockaddr_in * addr) {
 
       //Traverse the linked list to find user
       while (head != NULL) {
-        printf("Usr list = %s\n", head -> username);//print usernmae in the list
-        printf("Usr given = %s\n", username);//print given username
+        printf("Usr list = %s\n", head -> user_name);//print usernmae in the list
+        printf("Usr given = %s\n", user_name);//print given username
 
         //Check if the current entry matches the given username
-        if (strcmp(head -> username, username) == 0) {
+        if (strcmp(head -> user_name, user_name) == 0) {
           printf("Compare name success\n");
           printf("List index = %d\n", listIndex);
           use = listIndex;//store the index of ofund entry
@@ -290,7 +292,7 @@ void registration(int s, char * data, struct sockaddr_in * addr) {
   printf("Socket %d\n", s);
   printf("Data %s\n", data);
   // get user, file name, and port from the recieved 
-  strcpy(new -> username, strtok(data, rep));
+  strcpy(new -> user_name, strtok(data, rep));
   strcpy(fileName, strtok(NULL, rep));
   strcpy(new -> port, strtok(NULL, rep));
   strcpy(new -> ip, ip);
@@ -310,7 +312,7 @@ void registration(int s, char * data, struct sockaddr_in * addr) {
           break;
         }
         // check if username is already used
-        if (strcmp(head -> username, data) == 0) {
+        if (strcmp(head -> user_name, data) == 0) {
           duplicateUser = 1;
           break;
         }
