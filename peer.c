@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
   // TCP
   int sd, new_sd, client_len, port, m;
   struct sockaddr_in client, client2;
-  /* Create a stream socket	*/
+  /* Create a stream socket */
   if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
     fprintf(stderr, "Can't creat a socket\n");
     exit(1);
@@ -139,11 +139,12 @@ int main(int argc, char **argv) {
   sprintf(address, "%s", myIP);
   sprintf(cport, "%u", myPort);
 
-  /* 	Enter User Name		*/
-  printf("Choose a user name\n");
+  /* Enter User Name */
+  printf("Enter a username: ");
+  fflush(stdout);
   n = read(0, peerName, 10);
 
-  /* Initialization of SELECT`structure and table structure	*/
+  /* Initialization of SELECT`structure and table structure */
   FD_ZERO(&afds);
   FD_SET(s_sock, &afds); /* Listening on the index server socket  */
   FD_SET(0, &afds);      /* Listening on the read descriptor   */
@@ -181,7 +182,9 @@ int main(int argc, char **argv) {
     default:
       // User Command Loop
       while (1) {
-        printf("Command:\n");
+printf("\nAvailable commands: R, T, L, D, O, Q, ?\n");
+        printf("Enter Command: ");
+fflush(stdout);
 
         memcpy(&rfds, &afds, sizeof(rfds));
         if (select(nfds, &rfds, NULL, NULL, NULL) == -1) {
@@ -211,7 +214,8 @@ int main(int argc, char **argv) {
           if (command[0] == 'R') {
             rpdu.type = 'R';
 
-            printf("Content Name:\n");
+            printf("Enter content name: ");
+   fflush(stdout);
             char contentName[20];
 
             // Read the content name from user input
@@ -222,7 +226,7 @@ int main(int argc, char **argv) {
             contentName[strcspn(contentName, "\n")] = 0;
 
             if (fopen(contentName, "r") == NULL) {
-              printf("File Does Not Exist!");
+              printf("File Does Not Exist!\n");
               continue;
             }
 
@@ -244,24 +248,22 @@ int main(int argc, char **argv) {
               // Read resposne PDU from server
               n = read(s_sock, &response, sizeof(response));
 
-              printf("%d\n", n);
-
               if (response.type == 'E') {
                 // print error message and break loop
-                printf("%s\n", response.data);
+                printf("Error: %s\n", response.data);
                 break;
               }
 
               if (response.type == 'A') {
                 // print acknowledge message and register
                 // content locally
-                printf("%s\n", response.data);
+                printf("Server Response: %s\n", response.data);
 
                 // Register file for local user table
                 // mark content as registered in local table
                 table[indexs].val = 1;
 
-                // store content name in local table
+                // Store content name in local table
                 strcpy(table[indexs].name, contentName);
 
                 // Index also maps to num files
@@ -287,9 +289,11 @@ int main(int argc, char **argv) {
                 printf("%s\n", response.data);
                 break;
               }
+
               if (response.type == 'O') {
-                printf("%s\n", response.data);
+                printf("Server Response: %s\n", response.data);
               }
+
               if (response.type == 'A') {
                 break;
               }
@@ -301,7 +305,8 @@ int main(int argc, char **argv) {
             // set PDU type to 'S' indicating search request
             rpdu.type = 'S';
 
-            printf("Content Name:\n");
+            printf("Enter Content Name: ");
+   fflush(stdout);
             char contentName[20];
 
             // Read the content name from user input
@@ -339,7 +344,7 @@ int main(int argc, char **argv) {
               if (response.type == 'S') {
                 // If the server has the content branch to the
                 // slient_download to request the data
-                printf("%s\n", response.data);
+                printf("Server Response: %s\n", response.data);
                 client_download(contentName, &response);
 
                 // Register download content 'R'
@@ -354,7 +359,7 @@ int main(int argc, char **argv) {
 
                 // mark content as registered in local table
                 table[indexs].val = 1;
-                
+               
                 // store content name in local table
                 strcpy(table[indexs].name, contentName);
                 indexs++;
@@ -391,21 +396,22 @@ int main(int argc, char **argv) {
             char contentName[20];
             local_list();  // list the local content and user
                            // chooses a number from the list
-            printf("Enter Number In List:\n");
+            printf("Enter Number In List: ");
+            fflush(stdout);
             int theValueInList;
 
             // Read user input to deregister
             while (scanf("%d", &theValueInList) != 1) {
-              printf("Please enter a number\n");
+              printf("Please enter a number: ");
+     fflush(stdout);
             }
-
-            printf("Index chosen = %d\n", theValueInList);
 
             // check if index is valid
             if (theValueInList >= indexs) {
               continue;
             }
 
+   printf("Deregistering %s\n", table[theValueInList].name);
             // send the name of the file to remove
             strcpy(contentName, table[theValueInList].name);
 
@@ -431,15 +437,15 @@ int main(int argc, char **argv) {
               // read response from server
               n = read(s_sock, &response, sizeof(response));
 
-              printf("%d\n", n);
-              if (response.type == 'E') { 
+              //printf("%d\n", n);
+              if (response.type == 'E') {
                 printf("%s\n", response.data);
                 break;
               }
 
               // Acknowledge 'A' on completion
               if (response.type == 'A') {
-                printf("%s\n", response.data);
+                printf("Server Response: %s\n", response.data);
 
                 // Unregister content in local table
                 table[theValueInList].val = 0;  
@@ -459,7 +465,7 @@ int main(int argc, char **argv) {
 }
 
 void quit(int s_sock) {
-  /* De-register all the registrations in the index server	*/
+  /* De-register all the registrations in the index server */
   rpdu.type = 'T';
   int a = 0;
   char dataToSend[100];
@@ -476,6 +482,10 @@ void quit(int s_sock) {
       contentName[strcspn(contentName, "\n")] = 0;
       strcat(dataToSend, contentName);
       strcpy(rpdu.data, dataToSend);
+
+      printf("Deregistering %s...", table[a].name);
+      fflush(stdout);
+
       write(s_sock, &rpdu, sizeof(rpdu));
       PDU response;
 
@@ -485,8 +495,9 @@ void quit(int s_sock) {
           printf("%s\n", response.data);
           break;
         }
+
         if (response.type == 'A') {
-          printf("%s\n", response.data);
+          printf("Server Response: %s\n", response.data);
           break;
         }
       }
@@ -498,7 +509,7 @@ void quit(int s_sock) {
 
 void local_list() {
   int i = 0;
-  /* List local content	*/
+  /* List local content */
   for (i = 0; i < indexs; i++) {
     if (table[i].val == 1) {
       // display value in list and name of file
@@ -508,7 +519,7 @@ void local_list() {
 }
 
 int server_download(int sd) {
-  /* Respond to the download request from a peer	*/
+  /* Respond to the download request from a peer */
   char *bp, buf[BUFLEN], rbuf[BUFLEN], sbuf[BUFLEN];
   int n, bytes_to_read, m;
   FILE *pFile;
